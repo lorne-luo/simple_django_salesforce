@@ -124,8 +124,26 @@ To use auto modeling command, you need first install ``simple_django_salesforce`
 
 Serialization
 -------------
-# To be finished
+It's easy to overwrite default serialization.
 
-Extension
----------
-# To be finished
+.. code-block:: python
+
+    class Subclass(SalesforceModel):
+        # method 1: override get_serialized_data() and get_deserialized_data() in subclass
+        def get_serialized_data(self, obj, field_name, field_type):
+            return get_serialized_data(obj, field_name, field_type
+
+        def get_deserialized_data(self, data, field_type):
+           return get_deserialized_data(data, field_type)
+
+        # method 2: you can also update serialization result in serialize() / deserialize(), but not recommend
+        def serialize(self):
+            # always get return when set the two skip param as true
+            data = super(SubOne,self).serialize(skip_data_error=True, skip_field_error=True)
+            data['unserializable_field'] = `SERIALIZE_CODES`
+            return data
+
+        def deserialize(self, obj_data):
+            super(Subclass,self).deserialize(skip_data_error=True, skip_field_error=True)
+            setattr(self, `FIELD_NAME`, `DESERIALIZE_CODES`)
+
