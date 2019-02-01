@@ -35,6 +35,7 @@ Add Salesforce credential in django settings.
     CHATTER_OAUTH_CLIENT_SECRET = ''
 
     CHATTER_API_URL = os.environ.get('CHATTER_API_URL', 'https://test.salesforce.com')
+    SALESFORCE_SANDBOX = os.environ.get('SALESFORCE_SANDBOX', True)
 
 
 Django class define

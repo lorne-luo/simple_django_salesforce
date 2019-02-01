@@ -33,26 +33,24 @@ class reconnect_decorator(object):
             return_func = self.func(base_client, *args, **kwargs)
             self.retry_count = 1
             return return_func
-        except (SalesforceExpiredSession, ConnectionError,
-                SalesforceMalformedRequest) as ex:
+        except (SalesforceExpiredSession, ConnectionError, SalesforceMalformedRequest) as ex:
             # reconnect only catch SalesforceMalformedRequest with `InvalidSessionId` err code
             # SalesforceMalformedRequest('https://ap5.salesforce.com/services/async/38.0/job', 400, '', {'exceptionCode': 'InvalidSessionId', 'exceptionMessage': 'Invalid session id'})
             if isinstance(ex, SalesforceMalformedRequest):
-                if isinstance(ex.content, dict) and ex.content.get(
-                        'exceptionCode', None) == 'InvalidSessionId':
+                if isinstance(ex.content, dict) and ex.content.get('exceptionCode', None) == 'InvalidSessionId':
                     pass
                 else:
                     raise ex
 
             if self.retry_count == self.RETRY_COUNT_MAX:
-                raise Exception(
-                    'Salesforce connection ended after too many reconnection retries.')
+                raise Exception('Salesforce connection ended after too many reconnection retries.')
 
             self.retry_count += 1
             settings.SALESFORCE_CLIENT = Salesforce(
                 username=settings.SALESFORCE_API_USER,
                 password=settings.SALESFORCE_API_PASSWORD,
-                security_token=settings.SALESFORCE_API_TOKEN
+                security_token=settings.SALESFORCE_API_TOKEN,
+                sandbox=settings.SALESFORCE_SANDBOX
             )
 
         return self.wrapper(base_client, *args, **kwargs)
@@ -113,6 +111,7 @@ class offline_decorator2(object):
         return wrapped_f
 
 
+# todo handle salesforce unavailable
 class SalesforceClient(object):
     DEFAULT_SALESFORCE_KEY_NAME = 'Id'  # salesforce use `Id` as default id
     DEFAULT_KEY_FIELD_NAME_IN_DJANGO = 'salesforce_id'
@@ -129,8 +128,7 @@ class SalesforceClient(object):
                                          self.DEFAULT_SALESFORCE_KEY_NAME)
 
         if not self.table_name:
-            raise ImproperlyConfigured(
-                'Salesforce client not configured properly, need table_name.')
+            raise ImproperlyConfigured('Salesforce client not configured properly, need table_name.')
 
     @property
     def salesforce_client(self):
@@ -158,12 +156,11 @@ class SalesforceClient(object):
                 raise ImproperlyConfigured(
                     '[SalesforceClient] %s do not have %s field.' % (
                         cls.__name__, obj.salesforce_django_key_name))
-            result.append(
-                {obj.salesforce_key_name: obj.get_salesforce_pk_value()})
+            result.append({obj.salesforce_key_name: obj.get_salesforce_pk_value()})
 
         return result
 
-    @offline_decorator({'salesforce_id': None})
+    @offline_decorator
     @reconnect_decorator
     def get_by_custom_id(self, field_name, id):
         try:
@@ -173,7 +170,7 @@ class SalesforceClient(object):
             log.error('[SF.%s.get_by_custom_id] %s' % (self.table_name, ex))
             raise ex
 
-    @offline_decorator({'salesforce_id': None})
+    @offline_decorator
     @reconnect_decorator
     def get(self, id):
         try:
@@ -183,7 +180,7 @@ class SalesforceClient(object):
             log.error('[SF.%s.get] %s' % (self.table_name, ex))
             raise ex
 
-    @offline_decorator({'salesforce_id': None})
+    @offline_decorator
     @reconnect_decorator
     def create(self, fields):
         if not fields:
@@ -200,7 +197,7 @@ class SalesforceClient(object):
             log.error('[SF.%s.create] data=%s' % (self.table_name, fields))
             raise ex
 
-    @offline_decorator({'salesforce_id': None})
+    @offline_decorator
     @reconnect_decorator
     def create_with_custom_key(self, fields, key=None):
         if not fields:
@@ -219,7 +216,7 @@ class SalesforceClient(object):
             log.error('[SF.%s.create] data=%s' % (self.table_name, fields))
             raise ex
 
-    @offline_decorator({'salesforce_id': None})
+    @offline_decorator
     @reconnect_decorator
     def update(self, id, fields):
         if not fields or not id:
@@ -235,11 +232,10 @@ class SalesforceClient(object):
             return obj
         except SalesforceError as ex:
             log.error('[SF.%s.update #%s] %s' % (self.table_name, ex, id))
-            log.error(
-                '[SF.%s.update] id=%s, data=%s' % (self.table_name, id, fields))
+            log.error('[SF.%s.update] id=%s, data=%s' % (self.table_name, id, fields))
             raise ex
 
-    @offline_decorator({'salesforce_id': None})
+    @offline_decorator
     @reconnect_decorator
     def upsert(self, id, fields):
         if not fields or not id:
@@ -254,11 +250,10 @@ class SalesforceClient(object):
             return obj
         except SalesforceError as ex:
             log.error('[SF.%s.upsert #%s] %s' % (self.table_name, ex, id))
-            log.error(
-                '[SF.%s.upsert] id=%s, data=%s' % (self.table_name, id, fields))
+            log.error('[SF.%s.upsert] id=%s, data=%s' % (self.table_name, id, fields))
             raise ex
 
-    @offline_decorator(True)
+    @offline_decorator
     @reconnect_decorator
     def delete(self, id):
         if not id:
@@ -339,8 +334,7 @@ class SalesforceClient(object):
             return obj
         except SalesforceError as ex:
             log.error('[SF.%s.bulk_hard_delete] %s' % (self.table_name, ex))
-            log.error(
-                '[SF.%s.bulk_hard_delete] data=%s' % (self.table_name, ids))
+            log.error('[SF.%s.bulk_hard_delete] data=%s' % (self.table_name, ids))
             raise ex
 
     @offline_decorator
