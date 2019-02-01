@@ -354,7 +354,7 @@ class SalesforceModel(models.Model):
                 except Exception as ex:
                     log.error('[%s#%s.deserialize] %s, data=%s' % (
                         cls.__name__, instance.id, ex, obj_data))
-                    raise ex
+                    continue
 
                 if not is_new:
                     if update_fields:
