@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 from django.db import models
 from django.conf import settings
@@ -22,7 +23,8 @@ def get_deep_attr(obj, attrs):
     return obj
 
 
-def get_serialized_data(data, field_type):
+def get_serialized_data(obj, field_name, field_type):
+    data = getattr(obj, field_name)
     if data is None:
         return data
 
@@ -39,9 +41,8 @@ def get_serialized_data(data, field_type):
 
 
 def get_deserialized_data(data, field_type):
-    if data is None:
+    if data is None or data == 'None':
         return None
-
     if field_type is models.DateTimeField:
         data = parse_datetime(data)
     elif field_type is models.DateField:
@@ -50,9 +51,9 @@ def get_deserialized_data(data, field_type):
         data = Decimal(data)
     elif field_type is models.BooleanField:
         if isinstance(data, str):
-            if data.lower() in ['true']:
+            if data.lower() in ['true', '1']:
                 data = True
-            elif data.lower() in ['false']:
+            elif data.lower() in ['false', '0']:
                 data = False
             else:
                 data = None
@@ -64,8 +65,7 @@ def get_nested_object(obj, field_str):
         if hasattr(obj, obj_ref):
             obj = getattr(obj, obj_ref)
         else:
-            raise LookupError(
-                "Can't found `%s` attribute in %s" % (obj_ref, obj))
+            raise LookupError("Can't found `%s` attribute in %s" % (obj_ref, obj))
         if obj is None:
             break
     return obj
@@ -90,8 +90,7 @@ def make_salesforce_fields_list(object, field_map, readonly_fields=()):
         if not has_deep_attr(object, object_field):
             continue
 
-        salesforce_fields[salesforce_field] = get_deep_attr(object,
-                                                            object_field)
+        salesforce_fields[salesforce_field] = get_deep_attr(object, object_field)
 
     return salesforce_fields
 

@@ -72,7 +72,7 @@ class SalesforceModel(models.Model):
 
     def field_serialize(self, obj, field_name, field_type):
         data = getattr(obj, field_name, None)
-        return helpers.get_serialized_data(data, field_type)
+        return helpers.get_serialized_data(data, field_name, field_type)
 
     def field_deserialize(self, value, field_name, field_type):
         data = helpers.get_deserialized_data(value, field_type)
