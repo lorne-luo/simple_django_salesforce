@@ -267,12 +267,23 @@ class SalesforceModel(models.Model):
             self.save(*args, **kwargs)
 
             update_fields = kwargs.get('update_fields', None)
-            if update_fields:
-                update_fields = [self.fields_map[field_name] for field_name in
-                                 update_fields if
-                                 field_name in self.fields_map]
+            if update_fields is None:
+                # no update_fields provided, push all fields as default
+                result = self.push()
+            else:
+                update_fields_for_sf = []
+                if update_fields:
+                    for field_name in update_fields:
+                        if field_name in self.fields_map:
+                            update_fields_for_sf.append(self.fields_map[field_name])
 
-            result = self.push(update_fields=update_fields)
+                        # foreignkey's property
+                        fk_name = '%s.' % field_name
+                        for local_name, sf_name in self.fields_map.items():
+                            if fk_name in local_name:
+                                update_fields_for_sf.append(sf_name)
+
+                result = self.push(update_fields=update_fields_for_sf)
         return result
 
     def delete_and_push(self, *args, **kwargs):
