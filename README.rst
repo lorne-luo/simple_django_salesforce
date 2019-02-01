@@ -143,11 +143,12 @@ It's easy to overwrite default serialization.
         # method 2: you can also update serialization result in serialize() / deserialize(), but not recommend
         def serialize(self):
             # always get return when set the two skip param as true
-            data = super(SubOne,self).serialize(skip_data_error=True, skip_field_error=True)
+            data = super(Subclass, self).serialize(skip_data_error=True, skip_field_error=True)
             data['unserializable_field'] = `SERIALIZE_CODES`
             return data
 
         def deserialize(self, obj_data):
-            super(Subclass,self).deserialize(skip_data_error=True, skip_field_error=True)
+            super(Subclass, self).deserialize(skip_data_error=True, skip_field_error=True)
             setattr(self, `FIELD_NAME`, `DESERIALIZE_CODES`)
+
 

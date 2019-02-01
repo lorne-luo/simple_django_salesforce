@@ -360,18 +360,24 @@ class SalesforceModel(models.Model):
                     if update_fields:
                         instance.save(update_fields=update_fields)
                     else:
-                        instance.save()
-
-                        # make sync_at later than modify_at, so is_sync return True
-                        instance.sync_at = timezone.now()
-                        instance.save(update_fields=['sync_at'])
+                        try:
+                            instance.save()
+                            # make sync_at later than modify_at, so is_sync return True
+                            instance.sync_at = timezone.now()
+                            instance.save(update_fields=['sync_at'])
+                        except Exception as ex:
+                            log.error('[%s#.pull_all.save] %s, data=%s' % (
+                                cls.__name__, ex, obj_data))
                     existed_items.append(instance)
                 else:
                     if create_new:
                         # create_new, update_fields not applied
-                        instance.save()
-                        instance.sync_at = timezone.now()
-                        instance.save(update_fields=['sync_at'])
+                        try:
+                            instance.save()
+                            instance.sync_at = timezone.now()
+                            instance.save(update_fields=['sync_at'])
+                        except Exception as ex:
+                            log.error('[%s#.pull_all.save] %s, data=%s' % (cls.__name__, ex, obj_data))
                     # new instances may need further FK field assignment before save, let subclass handle it
                     new_items.append(instance)
 
