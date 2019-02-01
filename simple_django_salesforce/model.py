@@ -196,7 +196,10 @@ class SalesforceModel(models.Model):
             raise ex
 
         # apply update_fields
-        if update_fields and isinstance(update_fields, (list, tuple)):
+        if update_fields in [[],()]:
+            # non SF fields already filtered in save_and_push, just return
+            return self
+        elif update_fields and isinstance(update_fields, (list, tuple)):
             update_fields = frozenset(update_fields)
             excluded_fields = set(list(fields.keys())).difference(update_fields)
             for key in excluded_fields:
