@@ -71,8 +71,7 @@ class SalesforceModel(models.Model):
             field.get_attname_column()
 
     def field_serialize(self, obj, field_name, field_type):
-        data = getattr(obj, field_name, None)
-        return helpers.get_serialized_data(data, field_name, field_type)
+        return helpers.get_serialized_data(obj, field_name, field_type)
 
     def field_deserialize(self, value, field_name, field_type):
         data = helpers.get_deserialized_data(value, field_type)
@@ -99,7 +98,7 @@ class SalesforceModel(models.Model):
                 else:
                     raise ImproperlyConfigured(
                         '[SalesforceModel.serialize] %s field error >> %s' % (
-                        object_field, ex))
+                            object_field, ex))
 
             # for `fk.attribute`, fk object maybe None
             if obj is None:
@@ -139,7 +138,7 @@ class SalesforceModel(models.Model):
                 if not value is None:
                     fk_name = local_field.split('.')[:1][0]
                     fk_model = self._meta.get_field(fk_name).rel.to
-                    objects = fk_model.objects.filter(salesforce_id=value)
+                    objects = fk_model.objects.filter(salesforce_id=value).order_by('id')
                     if objects.count() > 1:
                         log.error(
                             '[%s.deserialize] multiple object have same salesforce_id `%s`' % (
@@ -193,7 +192,7 @@ class SalesforceModel(models.Model):
             fields = self.serialize()
         except Exception as ex:
             log.error('[%s.serialize] id=%s, %s' % (
-            self.__class__.__name__, self.id, ex))
+                self.__class__.__name__, self.id, ex))
             raise ex
 
         # apply update_fields
@@ -211,7 +210,7 @@ class SalesforceModel(models.Model):
                 result = salesforce_client.create(fields)
             if not result:
                 log.error('[%s] #%s failed to push to salesforce' % (
-                self.__class__.__name__, self.id))
+                    self.__class__.__name__, self.id))
             elif result.get('id', None):
                 # Save Salesforce ID back into local DB
                 self.salesforce_id = result.get('id')
@@ -253,7 +252,7 @@ class SalesforceModel(models.Model):
             self.deserialize(salesforce_obj)
         except Exception as ex:
             log.error('[%s#%s.deserialize] %s, data=%s' % (
-            self.__class__.__name__, self.id, ex, salesforce_obj))
+                self.__class__.__name__, self.id, ex, salesforce_obj))
             raise ex
 
         self.save()
@@ -293,7 +292,7 @@ class SalesforceModel(models.Model):
         remote_update_fields.append(
             'IsDeleted')  # fake delete field, builtin on all salesforce table
         sql = 'SELECT %s FROM %s' % (
-        ','.join(remote_update_fields), cls.salesforce_table_name)
+            ','.join(remote_update_fields), cls.salesforce_table_name)
         return sql
 
     @classmethod
@@ -328,7 +327,7 @@ class SalesforceModel(models.Model):
                 if objects.count() > 1:
                     log.error(
                         '[%s.pull_all] multiple object have same salesforce_id `%s`' % (
-                        cls.__name__, salesforce_id))
+                            cls.__name__, salesforce_id))
                     # todo not raise here, do we need report to master?
                 instance = objects.first()
                 is_new = not bool(instance)
@@ -340,7 +339,7 @@ class SalesforceModel(models.Model):
                     instance.deserialize(obj_data)
                 except Exception as ex:
                     log.error('[%s#%s.deserialize] %s, data=%s' % (
-                    cls.__name__, instance.id, ex, obj_data))
+                        cls.__name__, instance.id, ex, obj_data))
                     raise ex
 
                 if not is_new:
