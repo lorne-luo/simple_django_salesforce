@@ -1,4 +1,5 @@
 import requests
+import os
 import magic
 import json
 import logging
@@ -20,15 +21,14 @@ class Chatter(object):
         self.username = settings.SALESFORCE_API_USER
         self.password = settings.SALESFORCE_API_PASSWORD
         self.api_token = settings.SALESFORCE_API_TOKEN
-        self.access_token, self.instance_url, self.id_url, self.token_type,\
-        self.issued_at, self.signature = self.login()
+        self.access_token, self.instance_url, self.id_url, self.token_type, self.issued_at, self.signature = self.login()
 
     def login(self):
         # https://developer.salesforce.com/docs/atlas.en-us.chatterapi.meta/chatterapi/quickstart_connecting.htm
         # https://developer.salesforce.com/page/Digging_Deeper_into_OAuth_2.0_on_Force.com#Obtaining_a_Token_in_an_Autonomous_Client_.28Username_and_Password_Flow.29
         # curl example:
         # curl -v https://login.salesforce.com/services/oauth2/token -d "grant_type=password" -d "client_id=3MVG9d8..z.hDcPJxg3SNKy1bvkwt28Kkqa2wuBTYu_iTEmn3PgGq17zW7S3wyRUhan9cbLcFRTKrcv80XrtY" -d "client_secret=5592036841034327676" -d "username=dylan.mctaggart@butterfly.com.au" -d "password=Butterfly16fyQH3ZFE6dDO8HVbAbC8XXFM"
-        loginUrl = "https://login.salesforce.com/services/oauth2/token"
+        loginUrl = settings.CHATTER_API_URL + "/services/oauth2/token"
         header = {"Content-Type": "application/x-www-form-urlencoded"}
 
         data = {
@@ -55,15 +55,13 @@ class Chatter(object):
         #     "issued_at": "1505263023689",
         #     "signature": "3Bmqk9jeKfDa26vluA2qAozvEjh4xPvkXl2djx804a0="
         # }
-        return body['access_token'], body['instance_url'].rstrip('/'), body[
-            'id'], body['token_type'], \
+        return body['access_token'], body['instance_url'].rstrip('/'), body['id'], body['token_type'], \
                body['issued_at'], body['signature']
 
     def _check_token(self):
         timestamp = int(self.issued_at)
         local_tz = pytz.timezone("Australia/Victoria")
-        utc_dt = datetime.utcfromtimestamp(timestamp // 1000).replace(
-            microsecond=timestamp % 1000 * 1000)
+        utc_dt = datetime.utcfromtimestamp(timestamp // 1000).replace(microsecond=timestamp % 1000 * 1000)
         utc_dt = utc_dt.replace(tzinfo=pytz.utc)
         local_dt = local_tz.normalize(utc_dt.astimezone(local_tz))
         token_expired_dt = local_dt + timedelta(hours=2)
@@ -75,18 +73,16 @@ class Chatter(object):
         return
 
     def _get_file_url(self, salesforce_id):
-        return '%s/services/data/v%s/connect/files/%s' % (
-        self.instance_url, DEFAULT_API_VERSION, salesforce_id)
+        return '%s/services/data/v%s/connect/files/%s' % (self.instance_url, DEFAULT_API_VERSION, salesforce_id)
 
     def get_token_url_content(self, url):
         self._check_token()
         # get access token protected url from salesforce, return the content
-        header = {
-            'Authorization': '%s %s' % (self.token_type, self.access_token)}
+        header = {'Authorization': '%s %s' % (self.token_type, self.access_token)}
         r = requests.get(url, headers=header)
         return r
 
-    def download_url(self, url, path):
+    def download_token_url(self, url, path):
         self._check_token()
         # download a token protected link and store locally
         r = self.get_token_url_content(url)
@@ -97,8 +93,7 @@ class Chatter(object):
         self._check_token()
 
         # on file on saleforce have different version, this get newest version download link
-        header = {
-            'Authorization': '%s %s' % (self.token_type, self.access_token)}
+        header = {'Authorization': '%s %s' % (self.token_type, self.access_token)}
         r = requests.get(self._get_file_url(salesforce_id), headers=header)
         body = r.json()
         if (r.status_code > 299):
@@ -106,46 +101,42 @@ class Chatter(object):
         else:
             return True, body['id'], self.instance_url + body['downloadUrl']
 
-    def upload_file(self, display_name, local_file_path,
-                    file_salesforce_id=None):
+    def upload_to_files_home(self, display_name, local_file_path, salesforce_id=None):
         with open(local_file_path, 'rb') as file_object:
-            success, sf_id, download_url = self.upload_file_obj(display_name,
-                                                                file_object,
-                                                                file_salesforce_id)
+            success, sf_id, download_url = self.upload_to_files_home_by_file_object(display_name, file_object,
+                                                                                    salesforce_id)
         return success, sf_id, download_url
 
-    def upload_file_obj(self, display_name, local_file_obj,
-                        file_salesforce_id=None):
+    def upload_to_files_home_by_file_object(self, display_name, local_file_obj, salesforce_id=None):
         # https://developer.salesforce.com/docs/atlas.en-us.chatterapi.meta/chatterapi/quickreference_post_binary_file.htm
         # https://developer.salesforce.com/docs/atlas.en-us.chatterapi.meta/chatterapi/intro_input.htm
         # curl example: curl -H "X-PrettyPrint: 1" -F 'json={"title":"BoatPrices"};type=application/json' -F "fileData=@package.json;type=application/json" -X POST https://ap5.salesforce.com/services/data/v38.0/connect/files/users/me -H 'Authorization: Bearer 00D7F000000yNxR!ARsAQBRuTMMss0gd9YQ_JhaFy.oonNBdTlSUFcOLf.jwSBuTiCJPXa0kajtQYMoRhS2Ka8CiFAdpmt9mlxnJogz542v5LzUf' --insecure
         self._check_token()
 
-        url = '%s/services/data/v%s/connect/files/users/me' % (
-        self.instance_url, DEFAULT_API_VERSION)
+        url = '%s/services/data/v%s/connect/files/users/me' % (self.instance_url, DEFAULT_API_VERSION)
 
-        if file_salesforce_id:
+        if salesforce_id:
             # check exist on salesforce
             try:
-                settings.SALESFORCE_CLIENT.ContentDocument.get(
-                    file_salesforce_id)
+                settings.SALESFORCE_CLIENT.ContentDocument.get(salesforce_id)
                 # existed file, update a new version
-                url = self._get_file_url(file_salesforce_id)
+                url = self._get_file_url(salesforce_id)
             except SalesforceResourceNotFound:
                 # uploaded before but deleted from salesforce, treat like new
                 pass
 
-        header = {
-            'Authorization': '%s %s' % (self.token_type, self.access_token),
-            'Accept': 'application/json'}
+        header = {'Authorization': '%s %s' % (self.token_type, self.access_token),
+                  'Accept': 'application/json'}
         mime = magic.Magic(mime=True)
         file_buffer = local_file_obj.read()
         mime_type = mime.from_buffer(file_buffer)
 
         payload = {"title": display_name}
+        filename = local_file_obj.name or display_name  # filename cant be null in fileData, check bug https://butterflygroup.atlassian.net/browse/SCLTNS-9
 
         files = {'json': (None, json.dumps(payload), 'application/json'),
-                 'fileData': (local_file_obj.name, file_buffer, mime_type)}
+                 'fileData': (
+                 filename, file_buffer, mime_type)}  # binary part need 3 fields: filename, binary bytes, file type
 
         r = requests.post(url, headers=header, files=files)
         # response example
